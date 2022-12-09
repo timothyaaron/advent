@@ -1,7 +1,9 @@
 import math
+from dataclasses import dataclass
 
 import numpy
-from dataclasses import dataclass
+
+DEBUG = False
 
 
 @dataclass
@@ -11,32 +13,58 @@ class Point:
 
 
 class Step:
-    def __init__(self, x, y, head, tail):
+    def __init__(self, x, y, rope):
         self.x = x
         self.y = y
-        self.value = 0
-        self.head = head
-        self.tail = tail
+        self.value = " "
+        self.rope = rope
 
     def __repr__(self):
         return str(self.value)
 
-    def start_here(self):
-        self.head.x = self.tail.x = self.x
-        self.head.y = self.tail.y = self.y
-        self.value = 1
-
     def step_here(self):
-        dist = math.sqrt((self.x - self.tail.x)**2 + (self.y - self.tail.y)**2)
-        if dist >= 2:
-            self.tail.x = self.head.x
-            self.tail.y = self.head.y
-            bridge[self.tail.y][self.tail.x].value = 1
+        # move the head
+        if DEBUG and bridge[rope[0].y][rope[0].x].value != len(rope) - 1:
+            bridge[rope[0].y][rope[0].x].value = " "
+        rope[0].x = self.x
+        rope[0].y = self.y
+        if DEBUG:
+            bridge[self.y][self.x].value = 0
 
-        self.head.x = self.x
-        self.head.y = self.y
+        # for each follower
+        for i, follower in enumerate(self.rope[1:]):
+            # is the follower 2 squares away from its leader?
+            dist = math.sqrt(
+                (follower.x - self.rope[i].x)**2 +
+                (follower.y - self.rope[i].y)**2
+            )
+            if dist >= 2:
+                if bridge[follower.y][follower.x].value != len(rope) - 1:
+                    bridge[follower.y][follower.x].value = " "
 
-        # bridge[tail[1]][tail[0]].val = 1
+                if rope[i].x > follower.x:
+                    follower.x += 1
+                elif rope[i].x < follower.x:
+                    follower.x -= 1
+
+                if rope[i].y > follower.y:
+                    follower.y += 1
+                elif rope[i].y < follower.y:
+                    follower.y -= 1
+
+                if DEBUG or i == len(rope) - 2:
+                    bridge[follower.y][follower.x].value = i + 1
+
+            else:
+                break
+
+        if DEBUG:
+            # add in rope
+            for i, r in enumerate(rope[::-1]):
+                bridge[r.y][r.x].value = len(rope) - i - 1
+
+            print(f"{bridge}\n")
+            input()
 
 
 with open("input.txt") as f:
@@ -61,37 +89,29 @@ for s in steps:
 
 width = right - left + 1
 height = top - bottom + 1
-head = Point(-left, -bottom)
-tail = Point(-left, -bottom)
+rope = [Point(-left, -bottom) for _ in range(10)]
 bridge = numpy.array([
-    [Step(x, y, head, tail) for x in range(width)] for y in range(height)
+    [Step(x, y, rope) for x in range(width)] for y in range(height)
 ])
-
-
-# calculate starting position
-hx = tx = -left
-hy = ty = -bottom
-bridge[ty][tx].start_here()
+bridge[rope[-1].y][rope[-1].x].value = 9
 
 # process input
 for s in steps:
+    print(s)
     match s[0], int(s[1]):
         case "U", val:
-            for b in bridge[hy + 1:hy + val + 1, hx]:
+            for b in bridge[rope[0].y + 1:rope[0].y + val + 1, rope[0].x]:
                 b.step_here()
-            hy += int(val)
         case "D", val:
-            for b in bridge[hy - val:hy, hx][::-1]:
+            for b in bridge[rope[0].y - val:rope[0].y, rope[0].x][::-1]:
                 b.step_here()
-            hy -= int(val)
         case "R", val:
-            for b in bridge[hy, hx + 1:hx + val + 1]:
+            for b in bridge[rope[0].y, rope[0].x + 1:rope[0].x + val + 1]:
                 b.step_here()
-            hx += int(val)
         case "L", val:
-            for b in bridge[hy, hx - val:hx][::-1]:
+            for b in bridge[rope[0].y, rope[0].x - val:rope[0].x][::-1]:
                 b.step_here()
-            hx -= int(val)
 
 print(bridge)
-print(sum([s.value for row in bridge for s in row]))
+print(f"{len(bridge[0])} x {len(bridge)}")
+print(sum([1 if s.value == (len(rope) - 1) else 0 for row in bridge for s in row]))
